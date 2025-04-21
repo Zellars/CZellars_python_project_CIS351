@@ -1,2 +1,2 @@
 # CZellars_python_project_CIS351
-I will be creating a python project that will take data from an API to give me a result, I will also show understanding on the CIA triad through the security measures I integrate that will allow me to run the program. 
+This Python project will retrieve and display data from an external API to produce meaningful results. In addition to demonstrating proficiency with API integration and data handling, the project will incorporate key principles of the CIA Triad (Confidentiality, Integrity, and Availability). Security measures will be implemented to ensure only authorized access, protect data from tampering, and maintain reliable operation of the program.
