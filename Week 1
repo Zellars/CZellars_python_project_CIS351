@@ -1,0 +1,54 @@
+Proposal: In this project I will be building a R.E.S.T. (Representational State Transfer Application Programming Interface) API (Application Programming Interface)
+
+Goals:
+
+API('s):
+
+Libraries and Tools: 
+Created virtual environment using ".venv/Scripts/activate"
+Installed "flask" using "pip install flash"
+Installed "flask_restful" using "pip install flask_restfull"
+Installed "flask_sqlalchemy" using "pip install flask_alchemy"
+
+Created "requirements.txt" to show all requirements needed
+
+
+Terminal Instructions:
+py -m venv .venv
+source .venv/Scripts/activate #this puts you in your virtual environment 
+
+pip install flask
+pip install flask_restful 
+pip install flask_sqlalchemy #Object Relational Mapping or what we use to talk to the database through the python code
+
+pip freeze > requirements.txt #shows dependencies in requirements.txt
+touch .gitingore #put .venv inside the gitignore file
+
+^^^ everything to do before the API is built 
+    everything to do after api is created below
+
+To run the API go into the terminal and type " py api.py " or "python api.py"
+The api should run and give you http followed py a local host number
+Should be able to click it and be taken to a web page saying FLASK REST API
+
+
+
+API instructions:
+Name the API api.py
+Inside of api.py display this code
+
+# api.py
+from flask import Flask
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    print("Home route hit!")
+    return '<h1>Flask REST API</h1>'
+
+print("Before if check")
+
+if __name__ == '__main__':
+    print("Starting Flask app...")
+    app.run(debug=True)
