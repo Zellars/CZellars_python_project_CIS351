@@ -1,3 +1,80 @@
 We will now be creating the database inside of the API
+Inside the Terminal type "python create_db.py"
+The inside of create_db.py should look like this:
 
+------------------------------------------------------
+print("STARTING create_db.py...")
+
+try:
+    from api import app, UserModel
+    from extensions import db
+    import os
+    print("App,DB, and model imported!")
+
+    # Ensure the instance folder exists
+    if not os.path.exists(app.instance_path):
+        os.makedirs(app.instance_path)
+        print("Created instance folder.")
+
+    with app.app_context():
+        db.create_all()
+        print("DB created at:", os.path.join(app.instance_path, 'database.db'))
+
+except Exception as e:
+    print("🔥 ERROR:", e)
+
+-------------------------------------------------------------------------------
+
+Side note:
+Due to an issue with circular importing I created new file called
+extensions.py that was in charge of holding my database (db) and flask_sqlalchemy
+That is why you will not see that code in api.py anymore
+
+The file looks like this:
+
+from flask_sqlalchemy import SQLAlchemy
+
+db = SQLAlchemy()
+--------------------------------------------------------------------------------
 New API code:
+# api.py
+import os
+from flask import Flask
+from extensions import db
+from flask_restful import Resource, Api, fields, marshal_with, abort
+
+# Initialize Flask app and SQLAlchemy
+# Create an instance of the Flask class for our web application
+app = Flask(__name__, instance_relative_config=True)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'database.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db.init_app(app)
+api = Api(app)
+
+# Define the UserModel class with SQLAlchemy
+# This class represents the user model in the database
+class UserModel(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+
+    def __repr__(self):
+        return f'User(name = {self.name}, email = {self.email})'
+
+#user arguments that we can use inside of the functions when we deal with the requests
+# and we can use them to validate the data that we get from the user
+user_agrs = reqparse.RequestParser()
+user_agrs.add_argument('name', type=str, required=True, help='Name cannot be blank')
+user_agrs.add_argument('email', type=str, required=True, help='Email cannot be blank')
+
+@app.route('/')
+def home():
+    print("Home route hit!")
+    return '<h1>Flask REST API</h1>'
+
+print("Before if check")
+
+if __name__ == '__main__':
+    print("Starting Flask app...")
+    app.run(debug=True)
+
