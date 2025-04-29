@@ -1,0 +1,269 @@
+In this week we added the Patch and Delete method to our api.
+Below is the current code:
+--------------------------------------
+# api.py
+#an API stands for Application Programming Interface, which is a set of rules and protocols for building and interacting with software applications.
+#It allows different software programs to communicate with each other and share data and functionality.
+import os
+from flask import Flask
+from extensions import db
+from flask_restful import Resource, Api, reqparse, fields, marshal_with, abort
+from sqlalchemy.exc import IntegrityError
+#Note for thunderbird path: http://127.0.0.1:5000/api/users/
+# Initialize Flask app and SQLAlchemy
+# Create an instance of the Flask class for our web application
+app = Flask(__name__, instance_relative_config=True)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'database.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db.init_app(app)
+api = Api(app)
+
+# Define the UserModel class with SQLAlchemy
+# This class represents the user model in the database
+class UserModel(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+
+    def __repr__(self):
+        return f'User(name = {self.name}, email = {self.email})'
+
+#user arguments that we can use inside of the functions when we deal with the requests
+# and we can use them to validate the data that we get from the user
+user_args = reqparse.RequestParser()
+user_args.add_argument('name', type=str, required=True, help='Name cannot be blank')
+user_args.add_argument('email', type=str, required=True, help='Email cannot be blank')
+
+userFields = {
+    'id': fields.Integer,
+    'name': fields.String,
+    'email': fields.String,
+#key on the left and value(data) on the right
+#Marshal_with is a decorator that allows us to serialize the data that we get from the database    
+}
+
+class Users(Resource):
+    @marshal_with(userFields) #gives the shape of the data that we get from the database
+    def get(self):
+        users = UserModel.query.all()
+        return users
+
+        for user in users:
+            user_data = {
+                'id': user.id,
+                'name': user.name,
+                'email': user.email
+            }
+            output.append(user_data)
+
+        return {'users': output}
+
+#post function that allows us to add data or users to the database
+    @marshal_with(userFields) #gives the shape of the data that we get from the database
+    def post(self):
+        args = user_args.parse_args() #uses the user_args that we defined above to get the data from the user
+        # Check if the user already exists
+        if UserModel.query.filter_by(name=args['name']).first():
+                abort(409, message="User with that name already exists.")
+        if UserModel.query.filter_by(email=args['email']).first():
+                abort(409, message="User with that email already exists.")
+
+        try:
+                user = UserModel(name=args['name'], email=args['email'])
+                db.session.add(user)
+                db.session.commit()
+                return user #201 is the status code for created
+    
+        except IntegrityError:
+                db.session.rollback() #rollback the session if there is an error
+                abort(409, message="Conflict: user with same name or email already exists.")
+
+class User(Resource):
+    @marshal_with(userFields) #gives the shape of the data that we get from the database
+    def get(self, id):
+        user = UserModel.query.filter_by(id=id).first()
+        if not user:
+            abort(404, "User not found")
+        return user
+
+@marshal_with(userFields) #gives the shape of the data that we get from the database
+def patch(self, id):
+        args = user_args.parse_args()
+        user = UserModel.query.filter_by(id=id).first()
+        if not user:
+            abort(404, "User not found")
+        user.name = args['name']
+        user.email = args['email']
+        db.session.commit()
+        return user
+
+@marshal_with(userFields) #gives the shape of the data that we get from the database
+def delete(self, id):
+        user = UserModel.query.filter_by(id=id).first()
+        if not user:
+            abort(404, "User not found")
+        db.session.delete(user)
+        db.session.commit()
+        users = UserModel.query.all()
+        return users, 204 #204 is the status code for no content
+
+api.add_resource(Users, '/api/users/')
+api.add_resource(User, '/api/users/<int:id>') #gives us the id of the user that we want to get, slightly different from the above one
+# The above line is a route that allows us to get a specific user by id
+#The first line is a route that allows us to get all users
+
+
+@app.route('/')
+def home():
+    print("Home route hit!")
+    return '<h1>Flask REST API</h1>'
+------------------------------------------------
+PROBLEM: When I try to use the patch method to change the email of a user an error
+code came up. The error read:
+----
+Status: 405 METHOD NOT ALLOWED
+{
+  "message": "The method is not allowed for the requested URL."
+}
+----
+The previous format before trying the patch was 
+{
+  "name": "Patch",
+  "email": "Patch@gmail.com"
+}
+---------------------------------------------------------
+
+The current format I am trying to implement is 
+{
+  "name": "Patch",
+  "email": "Thiswaspatched@gmail.com"
+}
+--------------------------------------------------
+THE FIX:
+I accidentally had the patch and delete outside of the class
+Bonus Fix:
+return {}, 204 #looks better in the delete portion
+-------------------------------------------------
+Updated Code:
+# api.py
+#an API stands for Application Programming Interface, which is a set of rules and protocols for building and interacting with software applications.
+#It allows different software programs to communicate with each other and share data and functionality.
+import os
+from flask import Flask
+from extensions import db
+from flask_restful import Resource, Api, reqparse, fields, marshal_with, abort
+from sqlalchemy.exc import IntegrityError
+#Note for thunderbird path: http://127.0.0.1:5000/api/users/
+# Initialize Flask app and SQLAlchemy
+# Create an instance of the Flask class for our web application
+app = Flask(__name__, instance_relative_config=True)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'database.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db.init_app(app)
+api = Api(app)
+
+# Define the UserModel class with SQLAlchemy
+# This class represents the user model in the database
+class UserModel(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+
+    def __repr__(self):
+        return f'User(name = {self.name}, email = {self.email})'
+
+#user arguments that we can use inside of the functions when we deal with the requests
+# and we can use them to validate the data that we get from the user
+user_args = reqparse.RequestParser()
+user_args.add_argument('name', type=str, required=True, help='Name cannot be blank')
+user_args.add_argument('email', type=str, required=True, help='Email cannot be blank')
+
+userFields = {
+    'id': fields.Integer,
+    'name': fields.String,
+    'email': fields.String,
+#key on the left and value(data) on the right
+#Marshal_with is a decorator that allows us to serialize the data that we get from the database    
+}
+
+class Users(Resource):
+    @marshal_with(userFields) #gives the shape of the data that we get from the database
+    def get(self):
+        users = UserModel.query.all()
+        return users
+
+        for user in users:
+            user_data = {
+                'id': user.id,
+                'name': user.name,
+                'email': user.email
+            }
+            output.append(user_data)
+
+        return {'users': output}
+
+#post function that allows us to add data or users to the database
+    @marshal_with(userFields) #gives the shape of the data that we get from the database
+    def post(self):
+        args = user_args.parse_args() #uses the user_args that we defined above to get the data from the user
+        # Check if the user already exists
+        if UserModel.query.filter_by(name=args['name']).first():
+                abort(409, message="User with that name already exists.")
+        if UserModel.query.filter_by(email=args['email']).first():
+                abort(409, message="User with that email already exists.")
+
+        try:
+                user = UserModel(name=args['name'], email=args['email'])
+                db.session.add(user)
+                db.session.commit()
+                return user #201 is the status code for created
+    
+        except IntegrityError:
+                db.session.rollback() #rollback the session if there is an error
+                abort(409, message="Conflict: user with same name or email already exists.")
+
+class User(Resource):
+    @marshal_with(userFields) #gives the shape of the data that we get from the database
+    def get(self, id):
+        user = UserModel.query.filter_by(id=id).first()
+        if not user:
+            abort(404, "User not found")
+        return user
+
+    @marshal_with(userFields) #gives the shape of the data that we get from the database
+    def patch(self, id):
+        args = user_args.parse_args()
+        user = UserModel.query.filter_by(id=id).first()
+        if not user:
+            abort(404, "User not found")
+        user.name = args['name']
+        user.email = args['email']
+        db.session.commit()
+        return user
+
+    @marshal_with(userFields) #gives the shape of the data that we get from the database
+    def delete(self, id):
+        user = UserModel.query.filter_by(id=id).first()
+        if not user:
+            abort(404, "User not found")
+        db.session.delete(user)
+        db.session.commit()
+        users = UserModel.query.all()
+        return {}, 204 #204 is the status code for no content
+
+api.add_resource(Users, '/api/users/')
+api.add_resource(User, '/api/users/<int:id>') #gives us the id of the user that we want to get, slightly different from the above one
+# The above line is a route that allows us to get a specific user by id
+#The first line is a route that allows us to get all users
+
+
+@app.route('/')
+def home():
+    print("Home route hit!")
+    return '<h1>Flask REST API</h1>'
+
+print("Before if check")
+
+if __name__ == '__main__':
+    print("Starting Flask app...")
+    app.run(debug=True)
