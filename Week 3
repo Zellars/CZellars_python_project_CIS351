@@ -1,0 +1,188 @@
+In this update we will be adding another endpoint.
+
+When I tried to run api.py and see the user data through the link
+http://127.0.0.1:5000 (by adding '/api/users/' to the end) I recieved an error message
+I couldn't understand why I was getting that error so I plugged in my code to chatgpt,
+told them what result I wanted, and finally asked them to explain what was happening.
+
+
+--------------------------------------------------------------
+Chatgpt Explanation Below:
+Alright Ced — I see the problem super clearly. 
+
+The mistake is right here in your Users class:
+
+------------
+class Users(Resource):
+    def get(self):
+        users = UserModel.query.all()
+        return Users   # <-- This is wrong!
+------------
+⚡ You're accidentally returning Users (the class itself), NOT your data.
+That's why Flask is screaming:
+
+TypeError: Object of type type is not JSON serializable
+
+Because Users is a class, and Python can't "turn a class into JSON."
+-------------
+✅ How to Fix It
+You want to return actual user data, not the class name.
+
+Here’s a simple corrected version:
+
+class Users(Resource):
+    def get(self):
+        users = UserModel.query.all()
+        output = []
+
+        for user in users:
+            user_data = {
+                'id': user.id,
+                'name': user.name,
+                'email': user.email
+            }
+            output.append(user_data)
+
+        return output  # ✅ Now returning real data, not the class
+----------------------------------------------------------------------------
+Cedric's expalanation of what went wrong:
+Basically I was asking python to give me back the class, which it cannot do because
+it cannot transfer or translate that class into JSON data.
+By just asking for the data itself from python and adding python string(s)
+explaining what said data meant I was able to work around this issue.
+-----------------------------------------------------------------------------
+127.0.0.1:5000/api/users/ display:
+
+{
+  "users":[]
+}
+------------------------------------------------------------------
+Now to add data!
+Updated code below:
+
+# api.py
+import os
+from flask import Flask
+from extensions import db
+from flask_restful import Resource, Api, reqparse, fields, marshal_with, abort
+
+# Initialize Flask app and SQLAlchemy
+# Create an instance of the Flask class for our web application
+app = Flask(__name__, instance_relative_config=True)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'database.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db.init_app(app)
+api = Api(app)
+
+# Define the UserModel class with SQLAlchemy
+# This class represents the user model in the database
+class UserModel(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+
+    def __repr__(self):
+        return f'User(name = {self.name}, email = {self.email})'
+
+#user arguments that we can use inside of the functions when we deal with the requests
+# and we can use them to validate the data that we get from the user
+user_agrs = reqparse.RequestParser()
+user_agrs.add_argument('name', type=str, required=True, help='Name cannot be blank')
+user_agrs.add_argument('email', type=str, required=True, help='Email cannot be blank')
+
+userFields = {
+    'id': fields.Integer,
+    'name': fields.String,
+    'email': fields.String,
+#key on the left and value(data) on the right
+#Marshal_with is a decorator that allows us to serialize the data that we get from the database    
+}
+
+class Users(Resource):
+    @marshal_with(userFields) #gives the shape of the data that we get from the database
+    def get(self):
+        users = UserModel.query.all()
+        output = []
+
+        for user in users:
+            user_data = {
+                'id': user.id,
+                'name': user.name,
+                'email': user.email
+            }
+            output.append(user_data)
+
+        return {'users': output}
+
+#post function that allows us to add data or users to the database
+    @marshal_with(userFields) #gives the shape of the data that we get from the database
+    def post(self):
+        args = user_args.parse_args() #uses the user_args that we defined above to get the data from the user
+        user = UserModel(name=args['name'], email=args['email'])
+        db.session.add(user)
+        db.session.commit()
+        users = UserModel.query.all()
+        return {'users': users}, 201 #201 is the status code for created
+
+api.add_resource(Users, '/api/users/')
+
+
+@app.route('/')
+def home():
+    print("Home route hit!")
+    return '<h1>Flask REST API</h1>'
+
+print("Before if check")
+
+if __name__ == '__main__':
+    print("Starting Flask app...")
+    app.run(debug=True)
+----------------------------------------------------------
+To test this out we're going to use an extension through VSCode called 
+ThunderClient
+Extensions>Search>Thunderclient>Install
+
+Create a new request
+When you install, the way to use Thunderbird is to put the url of the api into
+"enter request url"
+For me that was http://127.0.0.1:5000/api/users/ (route is important too!)
+
+When you choose to "Get" you will see what that page has for you (data)
+At this current time all that I have from Thunderbird after doing this is:
+
+{
+  "id": 0,
+  "name": null,
+  "email": null
+}
+
+-----------------------
+Problem!
+When I posted my name and an email I had no indication that it was put into the database.
+I ended up having to change my input code from return {'users': users}, 201
+To  return user, 201
+
+This worked and I saw change but I already posted 2 names and emails while trying 
+to fix it. This coupled with the fact that I had no written way of handling 
+duplication of code gave me a problem. 
+
+name = db.Column(db.String(80), unique=True, nullable=False)
+email = db.Column(db.String(120), unique=True, nullable=False)
+
+'unique=True' means no duplicate names and no duplicate emails are allowed.
+Basically if I tried to input it again the database would reject it (crash). 
+The best way to handle that is to create an if statement that checks if a name is 
+already inside of the database. 
+
+To handle that I added this code above my 
+' user = UserModel(name=args['name'], email=args['email'])' block:
+
+ if UserModel.query.filter_by(name=args['name']).first():
+        abort(409, message="User with that name already exists.")
+ if UserModel.query.filter_by(email=args['email']).first():
+        abort(409, message="User with that email already exists.")
+
+This handled that issue.
+Note to self restart terminal when you do this (ctrl +c) then run api.py
+
+
