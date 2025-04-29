@@ -1,8 +1,9 @@
 Proposal: In this project I will be building a R.E.S.T. (Representational State Transfer Application Programming Interface) API (Application Programming Interface)
 
-Goals:
+Goals: API can get, post, patch, and delete. A cybersecurity element will be added
+to this project as well.
 
-API('s):
+API('s): api.py (name of api)
 
 Libraries and Tools: 
 Created virtual environment using ".venv/Scripts/activate"
